@@ -2,7 +2,7 @@
 
 TradingLab is a premium, real-time trading observability dashboard designed for professional traders. It provides a unified view of market data, technical visualizations, news intelligence, and automated alerts.
 
-![Dashboard Preview](file:///C:/Users/Jose%20Paul/.gemini/antigravity/brain/abf76797-ed46-4a27-aab6-fe43707e7568/final_dashboard_snapshot_1768411845011.webp)
+![Dashboard Preview](docs/screenshots/dashboard.png)
 
 ## 🚀 Features
 
