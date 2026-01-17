@@ -35,16 +35,8 @@ export default function ProfilePage() {
                 const res = await fetch("/api/profile");
                 const data = await res.json();
 
-                // If we have a currentUser from permissions, prefer that for naming
-                if (currentUser) {
-                    setProfile({
-                        ...data,
-                        username: currentUser.username,
-                        email: currentUser.email
-                    });
-                } else {
-                    setProfile(data);
-                }
+                // Use the data from profile.json directly
+                setProfile(data);
             } catch (error) {
                 console.error("Failed to load profile:", error);
             } finally {

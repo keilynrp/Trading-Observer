@@ -213,6 +213,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         >
                             <Menu size={24} />
                         </Button>
+                        {/* 
                         <div className="flex items-center gap-4 bg-muted/50 px-3 py-1.5 rounded-full border hidden lg:flex">
                             <Search size={16} className="text-muted-foreground" />
                             <input
@@ -221,6 +222,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 className="bg-transparent border-none focus:outline-none text-sm w-48 lg:w-64"
                             />
                         </div>
+                        */}
                     </div>
 
                     <div className="flex items-center gap-2 md:gap-4">

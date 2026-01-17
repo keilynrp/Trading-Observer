@@ -1,3 +1,5 @@
 {
-  "alphaVantageKey": "ACTH8M3BI04BCEYH"
+  "alphaVantageKey": "ACTH8M3BI04BCEYH",
+  "dailyRequestsUsed": 8,
+  "lastRequestResetDate": "2026-01-17"
 }
