@@ -15,8 +15,10 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const [theme, setTheme] = useState<Theme>("dark");
     const [resolvedTheme, setResolvedTheme] = useState<"dark" | "light">("dark");
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
+        setMounted(true);
         const savedTheme = localStorage.getItem("theme") as Theme | null;
         if (savedTheme) {
             setTheme(savedTheme);
@@ -24,8 +26,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     useEffect(() => {
-        const root = window.document.documentElement;
+        if (!mounted) return;
 
+        const root = window.document.documentElement;
         let actualTheme: "dark" | "light" = "dark";
 
         if (theme === "system") {
@@ -38,23 +41,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         root.classList.remove("light", "dark");
         root.classList.add(actualTheme);
         localStorage.setItem("theme", theme);
-    }, [theme]);
+    }, [theme, mounted]);
 
     // Handle system theme changes
     useEffect(() => {
-        if (theme !== "system") return;
+        if (!mounted || theme !== "system") return;
 
         const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
         const handler = () => {
-            setResolvedTheme(mediaQuery.matches ? "dark" : "light");
+            const actual = mediaQuery.matches ? "dark" : "light";
+            setResolvedTheme(actual);
             const root = window.document.documentElement;
             root.classList.remove("light", "dark");
-            root.classList.add(mediaQuery.matches ? "dark" : "light");
+            root.classList.add(actual);
         };
 
         mediaQuery.addEventListener("change", handler);
         return () => mediaQuery.removeEventListener("change", handler);
-    }, [theme]);
+    }, [theme, mounted]);
 
     return (
         <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
