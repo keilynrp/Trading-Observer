@@ -15,6 +15,7 @@ export default function DashboardPage() {
     const { socket, isConnected } = useSocket();
     const [prices, setPrices] = useState<any>({});
     const [selectedSymbol, setSelectedSymbol] = useState("AAPL");
+    const [quota, setQuota] = useState({ used: 0, remaining: 0, total: 25 });
 
     useEffect(() => {
         if (!socket) return;
@@ -28,6 +29,10 @@ export default function DashboardPage() {
                 ...prev,
                 [data.symbol]: data
             }));
+        });
+
+        socket.on("quotaUpdate", (data) => {
+            setQuota(data);
         });
 
         socket.on("dashboardNotification", (n) => {
@@ -53,6 +58,7 @@ export default function DashboardPage() {
         return () => {
             initialTickers.forEach(ticker => socket.emit("unsubscribe", ticker));
             socket.off("priceUpdate");
+            socket.off("quotaUpdate");
             socket.off("dashboardNotification");
         };
     }, [socket]);
@@ -64,11 +70,24 @@ export default function DashboardPage() {
                     <h1 className="text-3xl font-bold tracking-tight">Market Overview</h1>
                     <p className="text-muted-foreground">Welcome back, here's what's happening today.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
-                    <span className="text-sm text-muted-foreground">
-                        {isConnected ? 'Live Market Feed' : 'Connecting...'}
-                    </span>
+                <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-end">
+                        <div className="flex items-center gap-2">
+                            <span className="flex h-5 items-center rounded-full bg-primary/10 px-2.5 text-xs font-semibold text-primary">
+                                {quota.remaining}
+                            </span>
+                            <span className="text-sm font-medium">Daily API Balance</span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                            {quota.remaining} requests pending today
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2 h-10 border-l pl-4">
+                        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-orange-500 animate-pulse'}`} />
+                        <span className="text-xs text-muted-foreground">
+                            {isConnected ? 'Live Feed' : 'Connecting...'}
+                        </span>
+                    </div>
                 </div>
             </div>
 
@@ -203,7 +222,7 @@ const TickerRow = React.memo(({ asset, isActive, onClick }: any) => {
                 </div>
                 <div>
                     <div className="font-bold">{asset.symbol}</div>
-                    <div className="text-xs text-muted-foreground">Stock</div>
+                    <div className="text-xs text-muted-foreground">{asset.isCrypto ? "Crypto" : "Stock"}</div>
                 </div>
             </div>
             <div className="text-right">

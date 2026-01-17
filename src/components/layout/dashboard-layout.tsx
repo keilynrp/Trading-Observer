@@ -24,13 +24,15 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/providers/theme-provider";
 import Link from "next/link";
 import { useSocket } from "@/components/providers/socket-provider";
+import { usePermissions } from "@/components/providers/permission-provider";
 
 interface DashboardLayoutProps {
     children: React.ReactNode;
 }
 
-export const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { socket } = useSocket();
+    const { currentUser, allUsers, switchUser, hasPermission, isLoading: permissionsLoading } = usePermissions();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -77,10 +79,11 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
             }
         };
         fetchProfile();
-    }, [pathname]); // Re-fetch on path change to catch updates
+    }, []); // Only fetch on mount
 
     const navItems = [
         { icon: <LayoutDashboard size={20} />, label: "Dashboard", href: "/" },
+        { icon: <PieChart size={20} />, label: "Market", href: "/market" },
         { icon: <TrendingUp size={20} />, label: "Watchlist", href: "/watchlist" },
         { icon: <Bell size={20} />, label: "Alerts", href: "/alerts" },
         { icon: <Newspaper size={20} />, label: "News", href: "/news" },
@@ -130,13 +133,15 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
                 </nav>
 
                 <div className="p-3 border-t">
-                    <NavItem
-                        icon={<Settings size={20} />}
-                        label="Settings"
-                        href="/settings"
-                        active={pathname === "/settings"}
-                        collapsed={isCollapsed}
-                    />
+                    {hasPermission("edit_settings") && (
+                        <NavItem
+                            icon={<Settings size={20} />}
+                            label="Settings"
+                            href="/settings"
+                            active={pathname === "/settings"}
+                            collapsed={isCollapsed}
+                        />
+                    )}
                 </div>
             </aside>
 
@@ -170,22 +175,24 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
                                 />
                             ))}
                             <div className="pt-4 mt-4 border-t">
-                                <NavItem
-                                    icon={<Settings size={20} />}
-                                    label="Settings"
-                                    href="/settings"
-                                    active={pathname === "/settings"}
-                                />
+                                {hasPermission("edit_settings") && (
+                                    <NavItem
+                                        icon={<Settings size={20} />}
+                                        label="Settings"
+                                        href="/settings"
+                                        active={pathname === "/settings"}
+                                    />
+                                )}
                             </div>
                         </nav>
                         <div className="p-6 border-t bg-muted/20">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-primary overflow-hidden">
-                                    {profile?.avatar && <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />}
+                                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold">
+                                    {currentUser?.username?.[0].toUpperCase() || "T"}
                                 </div>
                                 <div>
-                                    <p className="text-sm font-bold">{profile?.username || "Trader"}</p>
-                                    <p className="text-xs text-muted-foreground">{profile?.email || "trader@example.com"}</p>
+                                    <p className="text-sm font-bold">{currentUser?.username || "Trader"}</p>
+                                    <p className="text-xs text-muted-foreground">{currentUser?.email || "trader@example.com"}</p>
                                 </div>
                             </div>
                         </div>
@@ -217,9 +224,23 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
                     </div>
 
                     <div className="flex items-center gap-2 md:gap-4">
+                        {/* User Switcher (Simulated Session) */}
+                        <div className="flex items-center gap-2 bg-muted/30 p-1 rounded-lg border border-border/50 mr-2">
+                            <span className="text-[10px] font-bold uppercase text-muted-foreground px-2">Role:</span>
+                            <select
+                                value={currentUser?.id || ""}
+                                onChange={(e) => switchUser(e.target.value)}
+                                className="bg-transparent text-xs font-medium focus:outline-none cursor-pointer"
+                            >
+                                {allUsers.map(u => (
+                                    <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
+                                ))}
+                            </select>
+                        </div>
+
                         <div className="flex flex-col items-end mr-4 hidden sm:flex">
                             <span className="text-xs text-muted-foreground">Welcome back,</span>
-                            <span className="text-sm font-bold">{profile?.username || "Trader"}</span>
+                            <span className="text-sm font-bold">{currentUser?.username || "Trader"}</span>
                         </div>
                         <Button
                             size="icon"
@@ -295,11 +316,13 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
                         </div>
 
                         <Link href="/profile">
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-accent overflow-hidden border-2 border-primary/20 hover:border-primary transition-all">
-                                {profile?.avatar ? (
-                                    <img src={profile.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-accent overflow-hidden border-2 border-primary/20 hover:border-primary transition-all flex items-center justify-center">
+                                {currentUser?.avatar ? (
+                                    <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-white text-[10px] font-bold">TR</div>
+                                    <span className="text-white text-[10px] font-bold">
+                                        {currentUser?.username?.substring(0, 2).toUpperCase() || "TR"}
+                                    </span>
                                 )}
                             </div>
                         </Link>

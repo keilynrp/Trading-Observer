@@ -8,11 +8,20 @@ import { AlphaVantageMCP } from "./mcp-client.mjs";
 
 dotenv.config();
 
+process.on("unhandledRejection", (reason, promise) => {
+    console.error("❌ UNHANDLED REJECTION at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+    console.error("❌ UNCAUGHT EXCEPTION:", err);
+});
+
 const httpServer = createServer();
 const io = new Server(httpServer, {
     cors: {
-        origin: "*", // In production, specify the frontend URL
-        methods: ["GET", "POST"]
+        origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
@@ -34,18 +43,32 @@ async function loadAlerts() {
     }
 }
 
+let dailyRequestsUsed = 0;
+let lastRequestResetDate = new Date().toISOString().split("T")[0];
+
 async function loadSettings() {
     try {
         if (fs.existsSync(SETTINGS_PATH)) {
             const data = JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf-8"));
+
+            // API Key Handling
             if (data.alphaVantageKey && data.alphaVantageKey !== ALPHA_VANTAGE_KEY) {
                 ALPHA_VANTAGE_KEY = data.alphaVantageKey;
                 console.log("Updated API Key from settings.json");
 
-                // Reconnect MCP if key changed
                 if (mcpClient) await mcpClient.disconnect();
                 mcpClient = new AlphaVantageMCP(ALPHA_VANTAGE_KEY);
                 await mcpClient.connect();
+            }
+
+            // Quota Tracking
+            const today = new Date().toISOString().split("T")[0];
+            if (data.lastRequestResetDate === today) {
+                dailyRequestsUsed = data.dailyRequestsUsed || 0;
+            } else {
+                dailyRequestsUsed = 0;
+                lastRequestResetDate = today;
+                saveSettings(); // Persist reset
             }
         } else if (!mcpClient && ALPHA_VANTAGE_KEY !== "demo") {
             mcpClient = new AlphaVantageMCP(ALPHA_VANTAGE_KEY);
@@ -53,6 +76,21 @@ async function loadSettings() {
         }
     } catch (error) {
         console.error("Error loading settings.json:", error);
+    }
+}
+
+function saveSettings() {
+    try {
+        const currentData = fs.existsSync(SETTINGS_PATH) ? JSON.parse(fs.readFileSync(SETTINGS_PATH, "utf-8")) : {};
+        const newData = {
+            ...currentData,
+            alphaVantageKey: ALPHA_VANTAGE_KEY,
+            dailyRequestsUsed,
+            lastRequestResetDate
+        };
+        fs.writeFileSync(SETTINGS_PATH, JSON.stringify(newData, null, 2));
+    } catch (error) {
+        console.error("Error saving settings.json:", error);
     }
 }
 
@@ -70,9 +108,24 @@ const subscriptions = new Set();
 const priceBuffers = new Map(); // Store last 20 prices for volatility/trend analysis
 const NOTIFICATION_HISTORY = [];
 
+// --- Smart Scheduler State ---
+const DAILY_LIMIT = 25;
+const UPDATE_INTERVAL = Math.floor((24 * 60 * 60 * 1000) / DAILY_LIMIT); // ~57.6 mins
+let currentTickerIndex = 0;
+let lastUpdateTimestamp = 0;
+
 // Thresholds for notifications
 const VOLATILITY_THRESHOLD = 0.02; // 2% change in short period
 const STABILITY_THRESHOLD = 0.002; // 0.2% variance for sustainability
+
+function broadcastQuota() {
+    const remaining = Math.max(0, DAILY_LIMIT - dailyRequestsUsed);
+    io.emit("quotaUpdate", {
+        used: dailyRequestsUsed,
+        remaining,
+        total: DAILY_LIMIT
+    });
+}
 
 function dispatchNotification(type, title, message, data = {}) {
     const notification = {
@@ -193,110 +246,217 @@ function analyzeMarketDynamics(symbol, price) {
     }
 }
 
+const CRYPTO_SYMBOLS = ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "DOGE", "AVAX", "DOT", "MATIC"];
+
 async function fetchPrice(symbol) {
     if (ALPHA_VANTAGE_KEY === "demo") {
         return generateMockPrice(symbol);
     }
 
     try {
-        const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${ALPHA_VANTAGE_KEY}`;
+        const isCrypto = CRYPTO_SYMBOLS.includes(symbol.toUpperCase());
+        let url;
+
+        if (isCrypto) {
+            // Use Currency Exchange Rate for crypto
+            url = `https://www.alphavantage.co/query?function=CURRENCY_EXCHANGE_RATE&from_currency=${symbol}&to_currency=USD&apikey=${ALPHA_VANTAGE_KEY}`;
+        } else {
+            // Use Global Quote for stocks
+            url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${ALPHA_VANTAGE_KEY}`;
+        }
+
         const response = await fetch(url);
+        dailyRequestsUsed++;
+        saveSettings();
+        broadcastQuota();
+
         const data = await response.json();
 
-        const quote = data["Global Quote"];
-        if (quote && quote["05. price"]) {
-            return {
-                symbol: quote["01. symbol"],
-                price: quote["05. price"],
-                change: quote["09. change"],
-                changePercent: quote["10. change percent"].replace("%", ""),
-                timestamp: new Date().toISOString()
-            };
+        if (data["Information"] || data["Note"]) {
+            console.warn(`⚠️ Alpha Vantage Rate Limit Hit for ${symbol}: ${data["Information"] || data["Note"]}`);
+            return generateMockPrice(symbol);
         }
-        return generateMockPrice(symbol); // Fallback if rate limited
+
+        if (isCrypto) {
+            const rate = data["Realtime Currency Exchange Rate"];
+            if (rate && rate["5. Exchange Rate"]) {
+                // Map crypto rate to the same format as quote
+                const price = parseFloat(rate["5. Exchange Rate"]);
+                // For crypto we don't get 24h change from this endpoint easily without another call
+                // but we can at least return the price.
+                return {
+                    symbol: symbol.toUpperCase(),
+                    price: price.toFixed(2),
+                    change: "0.00",
+                    changePercent: "0.00",
+                    timestamp: new Date().toISOString(),
+                    isCrypto: true
+                };
+            }
+        } else {
+            const quote = data["Global Quote"];
+            if (quote && quote["05. price"]) {
+                return {
+                    symbol: quote["01. symbol"],
+                    price: quote["05. price"],
+                    change: quote["09. change"],
+                    changePercent: quote["10. change percent"].replace("%", ""),
+                    timestamp: new Date().toISOString(),
+                    isCrypto: false
+                };
+            }
+        }
+
+        console.warn(`⚠️ No data found for ${symbol}, falling back to mock.`);
+        return generateMockPrice(symbol);
     } catch (error) {
         console.error(`Error fetching price for ${symbol}:`, error);
         return generateMockPrice(symbol);
     }
 }
 
-// Update loop for prices
-setInterval(async () => {
-    for (const symbol of subscriptions) {
-        const data = await fetchPrice(symbol);
-        cache.set(symbol, data);
-        io.to(symbol).emit("priceUpdate", data);
-
-        // Advanced Analysis
-        analyzeMarketDynamics(symbol, parseFloat(data.price));
-
-        // Check alerts after each price update
-        checkAlerts(data);
+// --- Smart Scheduler (Spread 25 requests over 24 hours) ---
+async function performSmartUpdate() {
+    const symbols = Array.from(subscriptions);
+    if (symbols.length === 0) {
+        console.log("⏰ Scheduler: No active subscriptions. Waiting...");
+        return;
     }
-}, 5000); // Update every 5 seconds
+
+    // Round-robin selection
+    const symbol = symbols[currentTickerIndex % symbols.length];
+    currentTickerIndex++;
+
+    console.log(`📡 Scheduler: Updating ${symbol} (Next update in ${Math.floor(UPDATE_INTERVAL / 1000 / 60)} mins)`);
+
+    const data = await fetchPrice(symbol);
+    cache.set(symbol, data);
+    io.to(symbol).emit("priceUpdate", data);
+
+    // Advanced Analysis
+    analyzeMarketDynamics(symbol, parseFloat(data.price));
+
+    // Check alerts
+    checkAlerts(data);
+
+    lastUpdateTimestamp = Date.now();
+
+    const nextUpdate = new Date(Date.now() + UPDATE_INTERVAL).toLocaleTimeString();
+    console.log(`✅ Update complete. Next trigger at: ${nextUpdate}`);
+}
+
+// Initial trigger
+performSmartUpdate();
+
+// Set the long interval
+setInterval(performSmartUpdate, UPDATE_INTERVAL);
+
+// In-memory cache for news
+let cachedNews = [];
 
 async function fetchNews() {
-    // Try Direct API first for reliability in this environment
+    // Try Direct API first
     if (ALPHA_VANTAGE_KEY !== "demo") {
         try {
-            console.log("Fetching news via Direct API...");
+            console.log("📡 Fetching news via Direct API...");
             const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&apikey=${ALPHA_VANTAGE_KEY}&limit=20`;
             const response = await fetch(url);
+
+            // Increment quota
+            dailyRequestsUsed++;
+            saveSettings();
+            broadcastQuota();
+
             const data = await response.json();
             if (data && data.feed) {
-                return data.feed;
+                return processNewsFeed(data.feed);
+            } else if (data["Note"] || data["Information"]) {
+                console.warn(`⚠️ News API Rate Limit: ${data["Note"] || data["Information"]}`);
             }
         } catch (error) {
-            console.error("Error fetching news directly:", error);
+            console.error("❌ Error fetching news directly:", error);
         }
     }
 
-    // Fallback to MCP if available
+    // Fallback to MCP
     if (mcpClient) {
         try {
-            console.log("Fetching news via MCP...");
+            console.log("📡 Fetching news via MCP...");
             const newsData = await mcpClient.getNews();
             if (newsData && newsData.content) {
                 const news = JSON.parse(newsData.content[0].text);
-                return news.feed;
+                return processNewsFeed(news.feed);
             }
         } catch (e) {
-            console.error("Failed to fetch news via MCP:", e);
+            console.error("❌ Failed to fetch news via MCP:", e);
         }
     }
 
     return null;
 }
 
+function processNewsFeed(feed) {
+    return feed.slice(0, 20).map((item, index) => ({
+        id: `${Date.now()}-${index}`,
+        title: item.title,
+        source: item.source || "Alpha Vantage",
+        time: formatAlphaVantageDate(item.time_published),
+        sentiment: mapSentiment(item.overall_sentiment_label),
+        summary: item.summary,
+        url: item.url,
+        score: item.overall_sentiment_score
+    }));
+}
+
+function formatAlphaVantageDate(rawDate) {
+    if (!rawDate) return "Just now";
+    // Format: 20240116T213359 -> ISO
+    const formatted = rawDate.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, "$1-$2-$3T$4:$5:$6");
+    return new Date(formatted).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function mapSentiment(label) {
+    if (!label) return "neutral";
+    const l = label.toLowerCase();
+    if (l.includes("bullish")) return "positive";
+    if (l.includes("bearish")) return "negative";
+    return "neutral";
+}
+
 // Strategic keywords for news notifications
 const STRATEGIC_KEYWORDS = ["FED", "CPI", "INTEREST RATE", "INFLATION", "SEC", "CRASH", "BREAKOUT"];
 
-// Update loop for News
-setInterval(async () => {
-    const feed = await fetchNews();
-    if (feed && feed.length > 0) {
-        console.log(`Broadcasting ${feed.length} news items`);
-        io.emit("newsUpdate", feed.slice(0, 10)); // Broadcast top 10 news to everyone
+async function updateNewsFeed() {
+    const processedFeed = await fetchNews();
+    if (processedFeed && processedFeed.length > 0) {
+        console.log(`✅ Broadcasting ${processedFeed.length} processed news items`);
+        cachedNews = processedFeed;
+        io.emit("newsUpdate", cachedNews);
 
-        // Strategic News Filtering
-        const latest = feed[0];
+        // Strategic News Filtering for Notifications
+        const latest = processedFeed[0];
         const titleContent = (latest.title + " " + latest.summary).toUpperCase();
         const hasKeyword = STRATEGIC_KEYWORDS.some(kw => titleContent.includes(kw));
-        const isExtremelyBullish = latest.overall_sentiment_label === "Bullish" && latest.overall_sentiment_score > 0.6;
-        const isExtremelyBearish = latest.overall_sentiment_label === "Bearish" && latest.overall_sentiment_score < -0.6;
+        const isExtremelyBullish = latest.sentiment === "positive" && latest.score > 0.6;
+        const isExtremelyBearish = latest.sentiment === "negative" && latest.score < -0.6;
 
         if (hasKeyword || isExtremelyBullish || isExtremelyBearish) {
             dispatchNotification(
                 "news",
                 "Strategic Market Intelligence",
                 `Relevant news detected: ${latest.title}`,
-                { url: latest.url, sentiment: latest.overall_sentiment_label }
+                { url: latest.url, sentiment: latest.sentiment }
             );
         }
     } else {
-        console.log("No news data to broadcast");
+        console.log("⚠️ No new news data available.");
     }
-}, 60000); // 1 minute news update
+}
+
+// Update loop for News: Every 60 minutes (3600000 ms)
+setInterval(updateNewsFeed, 3600000);
+// Initial fetch
+updateNewsFeed();
 
 // Position Change Simulation
 setInterval(() => {
@@ -317,8 +477,9 @@ setInterval(() => {
 io.on("connection", (socket) => {
     console.log("Client connected:", socket.id);
 
-    // Send recent notifications to new clients
+    // Send recent notifications and news to new clients
     NOTIFICATION_HISTORY.forEach(n => socket.emit("dashboardNotification", n));
+    if (cachedNews.length > 0) socket.emit("newsUpdate", cachedNews);
 
     socket.on("subscribe", (symbol) => {
         console.log(`Subscribing to ${symbol}`);
@@ -328,6 +489,12 @@ io.on("connection", (socket) => {
         // Send initial data if available
         if (cache.has(symbol)) {
             socket.emit("priceUpdate", cache.get(symbol));
+        }
+    });
+
+    socket.on("getNews", () => {
+        if (cachedNews.length > 0) {
+            socket.emit("newsUpdate", cachedNews);
         }
     });
 
@@ -341,11 +508,24 @@ io.on("connection", (socket) => {
         }
     });
 
+    // Send quota info
+    broadcastQuota();
+
     socket.on("disconnect", () => {
         console.log("Client disconnected");
     });
 });
 
-httpServer.listen(PORT, () => {
-    console.log(`WebSocket server running on port ${PORT}`);
+httpServer.on("error", (err) => {
+    if (err.code === "EADDRINUSE") {
+        console.error(`❌ FATAL: Port ${PORT} is already in use. Please run reset-dev.ps1.`);
+    } else {
+        console.error("❌ FATAL: Server error:", err);
+    }
+    process.exit(1);
+});
+
+httpServer.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 WebSocket server is now LISTENING on port ${PORT}`);
+    console.log(`📡 Access via http://127.0.0.1:${PORT}`);
 });

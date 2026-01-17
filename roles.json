@@ -1,0 +1,28 @@
+[
+    {
+        "id": "admin",
+        "name": "Administrator",
+        "permissions": [
+            "view_dashboard",
+            "manage_users",
+            "manage_roles",
+            "edit_settings",
+            "view_market_data"
+        ]
+    },
+    {
+        "id": "trader",
+        "name": "Trader",
+        "permissions": [
+            "view_dashboard",
+            "view_market_data"
+        ]
+    },
+    {
+        "id": "viewer",
+        "name": "Viewer",
+        "permissions": [
+            "view_dashboard"
+        ]
+    }
+]

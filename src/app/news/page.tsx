@@ -3,41 +3,34 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Newspaper, ExternalLink, TrendingUp, TrendingDown, Clock, Search } from "lucide-react";
-import { io } from "socket.io-client";
+import { useSocket } from "@/components/providers/socket-provider"; // Use global socket
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export default function NewsPage() {
+    const { socket } = useSocket();
     const [news, setNews] = useState<any[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const socket = io("http://localhost:3001");
+        if (!socket) return;
 
+        // Listen for news updates (cached or fresh)
         socket.on("newsUpdate", (data: any[]) => {
-            const mappedNews = data.map((item, index) => ({
-                id: index,
-                title: item.title,
-                source: item.source || "Alpha Vantage",
-                time: new Date(item.time_published.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, "$1-$2-$3T$4:$5:$6")).toLocaleString(),
-                sentiment: item.overall_sentiment_label?.toLowerCase().includes("bullish") ? "positive" :
-                    item.overall_sentiment_label?.toLowerCase().includes("bearish") ? "negative" : "neutral",
-                sentimentScore: item.overall_sentiment_score,
-                summary: item.summary,
-                url: item.url,
-                banner: item.banner_image,
-                topics: item.topics
-            }));
-            setNews(mappedNews);
+            // Data is already processed by the server
+            setNews(data);
             setIsLoading(false);
         });
 
+        // Request latest news on mount ensures we get data even if we missed the connection event
+        socket.emit("getNews");
+
         return () => {
-            socket.disconnect();
+            socket.off("newsUpdate");
         };
-    }, []);
+    }, [socket]);
 
     const filteredNews = news.filter(item =>
         item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -63,7 +56,7 @@ export default function NewsPage() {
                 </div>
             </div>
 
-            {isLoading ? (
+            {isLoading && news.length === 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {[1, 2, 3, 4, 5, 6].map((i) => (
                         <Card key={i} className="h-[400px] border bg-card/40 animate-pulse" />

@@ -22,11 +22,25 @@ export class AlphaVantageMCP {
                 version: "1.0.0"
             });
 
-            await this.client.connect(this.transport);
+            await this.client.connect(this.transport).catch(err => {
+                throw new Error(`MCP Connection Refused: ${err.message}`);
+            });
             console.log("Connected to Alpha Vantage MCP");
             return true;
         } catch (error) {
-            console.error("Failed to connect to Alpha Vantage MCP:", error);
+            // Suppress verbose stack traces for expected connection errors
+            const msg = error?.message || "";
+            if (msg.includes("400") || msg.includes("401") || msg.includes("429")) {
+                console.warn(`Alpha Vantage MCP Connection Failed: ${msg} (Likely Invalid Key or Rate Limit)`);
+            } else {
+                console.error("Failed to connect to Alpha Vantage MCP:", error);
+            }
+            // Ensure client is cleaned up
+            try {
+                if (this.transport) await this.transport.close();
+            } catch (e) { /* ignore */ }
+            this.client = null;
+            this.transport = null;
             return false;
         }
     }
