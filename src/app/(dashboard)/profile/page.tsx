@@ -8,12 +8,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { User, Mail, Camera, Save, RefreshCw, CheckCircle2, AlertCircle, Lock, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePermissions } from "@/components/providers/permission-provider";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
 const AVATAR_SEEDS = ["Jose", "Paul", "Alex", "Sam", "Jordan", "Taylor"];
 
 export default function ProfilePage() {
     const { currentUser } = usePermissions();
+    const { update } = useSession();
     const [profile, setProfile] = useState({
         username: "",
         email: "",
@@ -34,8 +36,6 @@ export default function ProfilePage() {
             try {
                 const res = await fetch("/api/profile");
                 const data = await res.json();
-
-                // Use the data from profile.json directly
                 setProfile(data);
             } catch (error) {
                 console.error("Failed to load profile:", error);
@@ -50,38 +50,36 @@ export default function ProfilePage() {
         setIsSaving(true);
         setStatus("idle");
         try {
-            // Update profile.json
+            // Update profile via unified API
             const profileRes = await fetch("/api/profile", {
                 method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(profile),
             });
 
-            // Sync with users.json if we have a current user
-            if (currentUser) {
-                await fetch("/api/settings/users", {
-                    method: "POST",
-                    body: JSON.stringify({
-                        id: currentUser.id,
-                        avatar: profile.avatar,
-                        username: profile.username,
-                        email: profile.email
-                    }),
-                });
-            }
-
             if (profileRes.ok) {
-                setStatus("success");
                 const data = await profileRes.json();
                 setProfile(data.profile);
-                toast.success("Profile basic info updated");
 
-                // Force a reload to update the global session/layout
-                setTimeout(() => window.location.reload(), 1500);
+                // Signal session update to NextAuth
+                await update({
+                    user: {
+                        name: data.profile.username,
+                        email: data.profile.email,
+                        avatar: data.profile.avatar,
+                    }
+                });
+
+                setStatus("success");
+                toast.success("Profile updated and synced");
             } else {
                 setStatus("error");
+                toast.error("Failed to update profile");
             }
         } catch (error) {
+            console.error("Save Error:", error);
             setStatus("error");
+            toast.error("An error occurred during update");
         } finally {
             setIsSaving(false);
             setTimeout(() => setStatus("idle"), 3000);

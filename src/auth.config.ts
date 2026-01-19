@@ -5,13 +5,16 @@ export const authConfig = {
         signIn: "/login",
     },
     callbacks: {
-        async jwt({ token, user }: any) {
+        async jwt({ token, user, trigger, session }: any) {
             if (user) {
                 token.role = user.role;
-                // Avoid storing large Base64 avatars in the cookie (HTTP 431 error)
-                if (user.avatar && !user.avatar.startsWith("data:")) {
-                    token.avatar = user.avatar;
-                }
+                token.avatar = user.avatar;
+            }
+            // Handle session update trigger
+            if (trigger === "update" && session) {
+                if (session.user?.role) token.role = session.user.role;
+                if (session.user?.avatar) token.avatar = session.user.avatar;
+                if (session.user?.name) token.name = session.user.name;
             }
             return token;
         },
@@ -20,6 +23,9 @@ export const authConfig = {
                 session.user.id = token.sub;
                 session.user.role = token.role;
                 session.user.avatar = token.avatar;
+                // Sync name/image if next-auth uses them
+                session.user.name = token.name || session.user.name;
+                session.user.image = token.avatar || session.user.image;
             }
             return session;
         },
