@@ -16,6 +16,9 @@ services:
       - NEXT_PUBLIC_WS_URL=http://localhost:3001
     env_file:
       - .env
+    volumes:
+      - ./users.json:/app/users.json
+      - ./watchlists.json:/app/watchlists.json
     command: node server.js
 
   backend:
@@ -33,7 +36,8 @@ services:
       - .env
     volumes:
       - ./settings.json:/app/settings.json
-      # - ./users.json:/app/users.json # Uncomment if authentication is fully implemented
+      - ./users.json:/app/users.json
+      - ./watchlists.json:/app/watchlists.json
     command: node server/index.mjs
 
 networks:

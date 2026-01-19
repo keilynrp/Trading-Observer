@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { useSession } from "next-auth/react";
 
 type Permission = "view_dashboard" | "manage_users" | "manage_roles" | "edit_settings" | "view_market_data";
 
@@ -32,11 +33,38 @@ interface PermissionContextType {
 const PermissionContext = createContext<PermissionContextType | undefined>(undefined);
 
 export function PermissionProvider({ children }: { children: ReactNode }) {
+    const { data: session, status } = useSession();
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [currentRole, setCurrentRole] = useState<Role | null>(null);
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [allRoles, setAllRoles] = useState<Role[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    // Sync with NextAuth session
+    useEffect(() => {
+        if (status === "loading") return;
+
+        if (session?.user) {
+            const user = {
+                id: session.user.id as string,
+                username: session.user.name as string,
+                email: session.user.email as string,
+                role: (session.user as any).role || "trader",
+                status: "active",
+                avatar: session.user.image || (session.user as any).avatar
+            };
+            setCurrentUser(user);
+
+            // If roles are loaded, set current role
+            if (allRoles.length > 0) {
+                const role = allRoles.find((r: Role) => r.id === user.role);
+                setCurrentRole(role || null);
+            }
+        } else {
+            setCurrentUser(null);
+            setCurrentRole(null);
+        }
+    }, [session, status, allRoles]);
 
     useEffect(() => {
         const initPermissions = async () => {
@@ -52,14 +80,17 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
                 setAllUsers(users);
                 setAllRoles(roles);
 
-                // Load last active user or default to admin
-                const savedUserId = localStorage.getItem("active_user_id");
-                const user = users.find((u: User) => u.id === savedUserId) || users.find((u: User) => u.role === "admin") || users[0];
+                if (!session?.user) {
+                    // Load last active user or default to admin (for simulation/testing if needed)
+                    // But usually we follow the session now
+                    const savedUserId = localStorage.getItem("active_user_id");
+                    const user = users.find((u: User) => u.id === savedUserId) || users.find((u: User) => u.role === "admin") || users[0];
 
-                if (user) {
-                    setCurrentUser(user);
-                    const role = roles.find((r: Role) => r.id === user.role);
-                    setCurrentRole(role || null);
+                    if (user) {
+                        setCurrentUser(user);
+                        const role = roles.find((r: Role) => r.id === user.role);
+                        setCurrentRole(role || null);
+                    }
                 }
             } catch (error) {
                 console.error("Failed to initialize permissions:", error);

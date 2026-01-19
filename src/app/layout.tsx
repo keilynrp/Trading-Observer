@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SocketProvider } from "@/components/providers/socket-provider";
 import DashboardLayout from "@/components/layout/dashboard-layout";
+import { SessionProvider } from "next-auth/react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,16 +52,16 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <ThemeProvider>
-          <SocketProvider>
-            <PermissionProvider>
-              <DashboardLayout>
+        <SessionProvider>
+          <ThemeProvider>
+            <SocketProvider>
+              <PermissionProvider>
                 {children}
-              </DashboardLayout>
-              <Toaster position="top-right" richColors closeButton />
-            </PermissionProvider>
-          </SocketProvider>
-        </ThemeProvider>
+                <Toaster position="top-right" richColors closeButton />
+              </PermissionProvider>
+            </SocketProvider>
+          </ThemeProvider>
+        </SessionProvider>
       </body>
     </html>
   );
