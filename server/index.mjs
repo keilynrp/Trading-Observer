@@ -354,27 +354,43 @@ setInterval(performSmartUpdate, UPDATE_INTERVAL);
 // In-memory cache for news
 let cachedNews = [];
 
-async function fetchNews() {
+async function fetchNews(retries = 2, delay = 2000) {
     // Try Direct API first
     if (ALPHA_VANTAGE_KEY !== "demo") {
-        try {
-            console.log("📡 Fetching news via Direct API...");
-            const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&apikey=${ALPHA_VANTAGE_KEY}&limit=20`;
-            const response = await fetch(url);
+        for (let i = 0; i <= retries; i++) {
+            try {
+                console.log(`📡 Fetching news via Direct API (Attempt ${i + 1})...`);
+                const url = `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&apikey=${ALPHA_VANTAGE_KEY}&limit=20`;
 
-            // Increment quota
-            dailyRequestsUsed++;
-            saveSettings();
-            broadcastQuota();
+                // Use AbortController for timeout
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-            const data = await response.json();
-            if (data && data.feed) {
-                return processNewsFeed(data.feed);
-            } else if (data["Note"] || data["Information"]) {
-                console.warn(`⚠️ News API Rate Limit: ${data["Note"] || data["Information"]}`);
+                const response = await fetch(url, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                // Increment quota
+                dailyRequestsUsed++;
+                saveSettings();
+                broadcastQuota();
+
+                const data = await response.json();
+                if (data && data.feed) {
+                    return processNewsFeed(data.feed);
+                } else if (data["Note"] || data["Information"]) {
+                    console.warn(`⚠️ News API Rate Limit: ${data["Note"] || data["Information"]}`);
+                    break; // Don't retry if it's a rate limit
+                }
+            } catch (error) {
+                const isTimeout = error.name === 'AbortError' || error.code === 'ETIMEDOUT';
+                console.error(`❌ Error fetching news (Attempt ${i + 1}):`, isTimeout ? "Timeout (10s)" : error.message);
+
+                if (i < retries) {
+                    console.log(`Retrying in ${delay / 1000}s...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2; // Exponential backoff
+                }
             }
-        } catch (error) {
-            console.error("❌ Error fetching news directly:", error);
         }
     }
 

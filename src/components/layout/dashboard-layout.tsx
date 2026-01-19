@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/providers/theme-provider";
 import Link from "next/link";
+import { signOut } from "next-auth/react";
+import { toast } from "sonner";
 import { useSocket } from "@/components/providers/socket-provider";
 import { usePermissions } from "@/components/providers/permission-provider";
 
@@ -32,7 +34,7 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const { socket } = useSocket();
-    const { currentUser, allUsers, switchUser, hasPermission, isLoading: permissionsLoading } = usePermissions();
+    const { currentUser, hasPermission, isLoading: permissionsLoading } = usePermissions();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -132,7 +134,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     ))}
                 </nav>
 
-                <div className="p-3 border-t">
+                <div className="p-3 border-t space-y-1">
                     {hasPermission("edit_settings") && (
                         <NavItem
                             icon={<Settings size={20} />}
@@ -142,6 +144,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             collapsed={isCollapsed}
                         />
                     )}
+                    <button
+                        onClick={async () => {
+                            await signOut({ redirect: false });
+                            toast.success("Signed out successfully");
+                            window.location.href = "/";
+                        }}
+                        className={cn(
+                            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-red-500 hover:bg-red-500/10 transition-all group",
+                            isCollapsed && "justify-center px-0"
+                        )}
+                    >
+                        <User size={20} className="shrink-0" />
+                        {!isCollapsed && <span className="font-medium">Sign Out</span>}
+                        {isCollapsed && (
+                            <div className="absolute left-full ml-2 px-2 py-1 bg-popover text-popover-foreground text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-md">
+                                Sign Out
+                            </div>
+                        )}
+                    </button>
                 </div>
             </aside>
 
@@ -188,7 +209,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <div className="p-6 border-t bg-muted/20">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-bold">
-                                    {currentUser?.username?.[0].toUpperCase() || "T"}
+                                    {(currentUser?.username?.[0] || "T").toUpperCase()}
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold">{currentUser?.username || "Trader"}</p>
@@ -226,19 +247,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
 
                     <div className="flex items-center gap-2 md:gap-4">
-                        {/* User Switcher (Simulated Session) */}
-                        <div className="flex items-center gap-2 bg-muted/30 p-1 rounded-lg border border-border/50 mr-2">
-                            <span className="text-[10px] font-bold uppercase text-muted-foreground px-2">Role:</span>
-                            <select
-                                value={currentUser?.id || ""}
-                                onChange={(e) => switchUser(e.target.value)}
-                                className="bg-transparent text-xs font-medium focus:outline-none cursor-pointer"
-                            >
-                                {allUsers.map(u => (
-                                    <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
-                                ))}
-                            </select>
-                        </div>
+                        {/* User info display removed simulation switcher */}
 
                         <div className="flex flex-col items-end mr-4 hidden sm:flex">
                             <span className="text-xs text-muted-foreground">Welcome back,</span>
@@ -323,11 +332,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     <img src={currentUser.avatar} alt="Avatar" className="w-full h-full object-cover" />
                                 ) : (
                                     <span className="text-white text-[10px] font-bold">
-                                        {currentUser?.username?.substring(0, 2).toUpperCase() || "TR"}
+                                        {(currentUser?.username?.substring(0, 2) || "TR").toUpperCase()}
                                     </span>
                                 )}
                             </div>
                         </Link>
+
                     </div>
                 </header>
 
