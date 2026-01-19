@@ -86,7 +86,7 @@ export function LandingNavbar() {
                                         <p className="text-sm text-slate-400">Signed in as</p>
                                         <p className="text-white font-medium truncate">{session.user?.email}</p>
                                         {userRole && (
-                                            <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-blue-600/20 text-blue-400 border border-blue-600/30">
+                                            <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-blue-600/20 text-blue-400 border border-blue-600/30 capitalize">
                                                 {userRole}
                                             </span>
                                         )}
@@ -166,7 +166,7 @@ export function LandingNavbar() {
                                     <p className="text-sm text-slate-400">Signed in as</p>
                                     <p className="text-white font-medium">{session.user?.name}</p>
                                     {userRole && (
-                                        <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-blue-600/20 text-blue-400">
+                                        <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-blue-600/20 text-blue-400 capitalize">
                                             {userRole}
                                         </span>
                                     )}
