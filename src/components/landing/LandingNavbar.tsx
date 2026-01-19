@@ -65,13 +65,13 @@ export function LandingNavbar() {
                                 className="flex items-center gap-3 px-4 py-2 rounded-xl bg-slate-800/50 hover:bg-slate-800 transition-colors border border-slate-700"
                             >
                                 {session.user?.avatar && !session.user.avatar.startsWith("data:") ? (
-                                    <Image
-                                        src={session.user.avatar}
-                                        alt={session.user?.name || "User"}
-                                        width={32}
-                                        height={32}
-                                        className="rounded-full"
-                                    />
+                                    <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-blue-400/30">
+                                        <img
+                                            src={session.user.avatar}
+                                            alt={session.user?.name || "User"}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
                                 ) : (
                                     <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
                                         <User size={16} className="text-white" />
@@ -162,14 +162,29 @@ export function LandingNavbar() {
                         <hr className="border-slate-800 my-2" />
                         {isAuthenticated ? (
                             <>
-                                <div className="px-4 py-2 bg-slate-800/50 rounded-lg">
-                                    <p className="text-sm text-slate-400">Signed in as</p>
-                                    <p className="text-white font-medium">{session.user?.name}</p>
-                                    {userRole && (
-                                        <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-blue-600/20 text-blue-400 capitalize">
-                                            {userRole}
-                                        </span>
-                                    )}
+                                <div className="px-4 py-2 bg-slate-800/50 rounded-lg flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-blue-400/30 shrink-0">
+                                        {session.user?.avatar && !session.user.avatar.startsWith("data:") ? (
+                                            <img
+                                                src={session.user.avatar}
+                                                alt={session.user?.name || "User"}
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full bg-blue-600 flex items-center justify-center">
+                                                <User size={20} className="text-white" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-sm text-slate-400">Signed in as</p>
+                                        <p className="text-white font-medium truncate">{session.user?.name}</p>
+                                        {userRole && (
+                                            <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-blue-600/20 text-blue-400 capitalize">
+                                                {userRole}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                                 <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)}>
                                     <Button variant="outline" className="w-full border-slate-700 text-white bg-transparent">

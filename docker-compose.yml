@@ -19,6 +19,7 @@ services:
     volumes:
       - ./users.json:/app/users.json
       - ./watchlists.json:/app/watchlists.json
+      - ./public/uploads:/app/public/uploads
     command: node server.js
 
   backend:
@@ -38,6 +39,7 @@ services:
       - ./settings.json:/app/settings.json
       - ./users.json:/app/users.json
       - ./watchlists.json:/app/watchlists.json
+      - ./public/uploads:/app/public/uploads
     command: node server/index.mjs
 
 networks:

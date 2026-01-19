@@ -74,14 +74,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         const fetchProfile = async () => {
             try {
                 const res = await fetch("/api/profile");
-                const data = await res.json();
-                setProfile(data);
+                if (res.ok) {
+                    const data = await res.json();
+                    setProfile(data);
+                }
             } catch (error) {
                 console.error("Failed to load profile:", error);
             }
         };
         fetchProfile();
-    }, []); // Only fetch on mount
+    }, [pathname]); // Refresh on navigation to handle updates from profile page
 
     const navItems = [
         { icon: <LayoutDashboard size={20} />, label: "Dashboard", href: "/" },
