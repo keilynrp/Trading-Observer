@@ -3,9 +3,11 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, Shield, Activity, ArrowRight } from "lucide-react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 
 export function HeroSection() {
+    const { status } = useSession();
     return (
         <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 overflow-hidden bg-slate-950">
             {/* Background Gradients */}
@@ -29,13 +31,17 @@ export function HeroSection() {
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-                    <Button size="lg" className="h-14 px-8 text-base font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20 group">
-                        Get Started Free
-                        <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" size={18} />
-                    </Button>
-                    <Button size="lg" variant="outline" className="h-14 px-8 text-base font-bold bg-slate-900/50 backdrop-blur-md border-slate-800 text-white hover:bg-slate-800 rounded-xl">
-                        View Live Markets
-                    </Button>
+                    <Link href={status === "authenticated" ? "/dashboard" : "/register"}>
+                        <Button size="lg" className="h-14 px-8 text-base font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/20 group">
+                            {status === "authenticated" ? "Go to Dashboard" : "Get Started Free"}
+                            <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" size={18} />
+                        </Button>
+                    </Link>
+                    <Link href="/dashboard">
+                        <Button size="lg" variant="outline" className="h-14 px-8 text-base font-bold bg-slate-900/50 backdrop-blur-md border-slate-800 text-white hover:bg-slate-800 rounded-xl">
+                            View Live Markets
+                        </Button>
+                    </Link>
                 </div>
 
                 {/* Dashboard Preview MacMockup-style */}
