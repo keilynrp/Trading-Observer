@@ -51,7 +51,7 @@ const NewsItem = React.memo(({ item, isLast }: { item: any, isLast: boolean }) =
         <div className="mt-2 flex items-center gap-1 text-[10px] text-primary font-bold opacity-0 group-hover:opacity-100 transition-opacity">
             Read More <ExternalLink size={10} />
         </div>
-        {!isLast && <div className="mt-6 border-b" />}
+        {!isLast && <div className="mt-6 border-b border-muted" />}
     </div>
 ));
 
@@ -64,20 +64,22 @@ export const NewsPanel = () => {
     React.useEffect(() => {
         if (!socket) return;
 
-        socket.on("newsUpdate", (data: any[]) => {
+        const handleNewsUpdate = (data: any[]) => {
             setNews(data);
-        });
+        };
+
+        socket.on("newsUpdate", handleNewsUpdate);
 
         // Ensure we get data if mounting after initial connection
         socket.emit("getNews");
 
         return () => {
-            socket.off("newsUpdate");
+            socket.off("newsUpdate", handleNewsUpdate);
         };
     }, [socket]);
 
     return (
-        <Card className="h-full bg-card/40 backdrop-blur-md border">
+        <Card className="h-full bg-card border shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-lg font-bold flex items-center gap-2">
                     <Newspaper size={18} className="text-primary" />
