@@ -412,16 +412,26 @@ async function fetchNews(retries = 2, delay = 2000) {
 }
 
 function processNewsFeed(feed) {
-    return feed.slice(0, 20).map((item, index) => ({
-        id: `${Date.now()}-${index}`,
-        title: item.title,
-        source: item.source || "Alpha Vantage",
-        time: formatAlphaVantageDate(item.time_published),
-        sentiment: mapSentiment(item.overall_sentiment_label),
-        summary: item.summary,
-        url: item.url,
-        score: item.overall_sentiment_score
-    }));
+    if (!feed) return [];
+    return feed.slice(0, 20).map((item, index) => {
+        // Generate a stable ID based on the URL or title if URL is missing
+        const stableId = item.url ? 
+            Buffer.from(item.url).toString('base64').substring(0, 32) : 
+            `news-${Date.now()}-${index}`;
+
+        return {
+            id: stableId,
+            title: item.title,
+            source: item.source || "Alpha Vantage",
+            time: formatAlphaVantageDate(item.time_published),
+            sentiment: mapSentiment(item.overall_sentiment_label),
+            summary: item.summary,
+            url: item.url,
+            banner: item.banner_image, // Enriched: include banner
+            score: item.overall_sentiment_score,
+            topics: item.ticker_sentiment // Enriched: include topics/tickers
+        };
+    });
 }
 
 function formatAlphaVantageDate(rawDate) {
@@ -469,8 +479,9 @@ async function updateNewsFeed() {
     }
 }
 
-// Update loop for News: Every 60 minutes (3600000 ms)
-setInterval(updateNewsFeed, 3600000);
+// Update loop for News: Every 6 hours (4 times per day to optimize API quota)
+const NEWS_UPDATE_INTERVAL = 6 * 60 * 60 * 1000; // 21600000 ms
+setInterval(updateNewsFeed, NEWS_UPDATE_INTERVAL);
 // Initial fetch
 updateNewsFeed();
 
@@ -495,6 +506,8 @@ io.on("connection", (socket) => {
 
     // Send recent notifications and news to new clients
     NOTIFICATION_HISTORY.forEach(n => socket.emit("dashboardNotification", n));
+    // No need to emit newsUpdate here if the client will request it or we wait for the next loop
+    // But sending it once on connection is good for UX.
     if (cachedNews.length > 0) socket.emit("newsUpdate", cachedNews);
 
     socket.on("subscribe", (symbol) => {

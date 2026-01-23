@@ -48,3 +48,6 @@ users.json
 watchlists.json
 settings.json
 roles.json
+
+# uploads
+/public/uploads/
