@@ -17,7 +17,8 @@ import {
     PieChart,
     Newspaper,
     Sun,
-    Moon
+    Moon,
+    Brain
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -89,6 +90,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { icon: <LayoutDashboard size={20} />, label: "Dashboard", href: "/" },
         { icon: <PieChart size={20} />, label: "Market", href: "/market" },
         { icon: <TrendingUp size={20} />, label: "Watchlist", href: "/watchlist" },
+        { icon: <Brain size={20} />, label: "Forecasting", href: "/forecasting" },
         { icon: <Bell size={20} />, label: "Alerts", href: "/alerts" },
         { icon: <Newspaper size={20} />, label: "News", href: "/news" },
         { icon: <User size={20} />, label: "Profile", href: "/profile" },
@@ -101,19 +103,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 "border-r bg-card flex flex-col transition-all duration-300 ease-in-out hidden md:flex relative",
                 isCollapsed ? "w-20" : "w-64"
             )}>
-                <Link href="/" className={cn(
-                    "p-6 flex items-center gap-2 mb-4 overflow-hidden h-20 shrink-0 hover:opacity-80 transition-opacity",
-                    isCollapsed ? "justify-center px-0" : "px-6"
-                )}>
-                    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-                        <TrendingUp className="text-primary-foreground" size={20} />
+                {pathname === "/" ? (
+                    <div className={cn(
+                        "p-6 flex items-center gap-2 mb-4 overflow-hidden h-20 shrink-0",
+                        isCollapsed ? "justify-center px-0" : "px-6"
+                    )}>
+                        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                            <TrendingUp className="text-primary-foreground" size={20} />
+                        </div>
+                        {!isCollapsed && (
+                            <span className="font-bold text-xl tracking-tight animate-in fade-in slide-in-from-left-2 duration-300">
+                                TradingLab
+                            </span>
+                        )}
                     </div>
-                    {!isCollapsed && (
-                        <span className="font-bold text-xl tracking-tight animate-in fade-in slide-in-from-left-2 duration-300">
-                            TradingLab
-                        </span>
-                    )}
-                </Link>
+                ) : (
+                    <Link href="/" className={cn(
+                        "p-6 flex items-center gap-2 mb-4 overflow-hidden h-20 shrink-0 hover:opacity-80 transition-opacity",
+                        isCollapsed ? "justify-center px-0" : "px-6"
+                    )}>
+                        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                            <TrendingUp className="text-primary-foreground" size={20} />
+                        </div>
+                        {!isCollapsed && (
+                            <span className="font-bold text-xl tracking-tight animate-in fade-in slide-in-from-left-2 duration-300">
+                                TradingLab
+                            </span>
+                        )}
+                    </Link>
+                )}
 
                 {/* Collapse Toggle Button */}
                 <button
@@ -352,11 +370,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
 };
 
-const NavItem = memo(({ icon, label, href, active = false, collapsed = false }: { icon: React.ReactNode; label: string; href: string; active?: boolean; collapsed?: boolean }) => (
-    <Link href={href}>
+const NavItem = memo(({ icon, label, href, active = false, collapsed = false }: { icon: React.ReactNode; label: string; href: string; active?: boolean; collapsed?: boolean }) => {
+    const content = (
         <div className={cn(
             "flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all relative group",
-            active ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+            active ? "bg-primary text-primary-foreground shadow-md cursor-default" : "text-muted-foreground hover:bg-muted hover:text-foreground",
             collapsed && "justify-center px-0"
         )}>
             <div className="shrink-0">{icon}</div>
@@ -370,7 +388,17 @@ const NavItem = memo(({ icon, label, href, active = false, collapsed = false }: 
                 </div>
             )}
         </div>
-    </Link>
-));
+    );
+
+    if (active) {
+        return content;
+    }
+
+    return (
+        <Link href={href}>
+            {content}
+        </Link>
+    );
+});
 
 NavItem.displayName = "NavItem";
