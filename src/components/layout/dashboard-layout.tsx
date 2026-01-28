@@ -87,7 +87,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }, [pathname]); // Refresh on navigation to handle updates from profile page
 
     const navItems = [
-        { icon: <LayoutDashboard size={20} />, label: "Dashboard", href: "/" },
+        { icon: <LayoutDashboard size={20} />, label: "Dashboard", href: "/dashboard" },
         { icon: <PieChart size={20} />, label: "Market", href: "/market" },
         { icon: <TrendingUp size={20} />, label: "Watchlist", href: "/watchlist" },
         { icon: <Brain size={20} />, label: "Forecasting", href: "/forecasting" },
@@ -103,7 +103,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 "border-r bg-card flex flex-col transition-all duration-300 ease-in-out hidden md:flex relative",
                 isCollapsed ? "w-20" : "w-64"
             )}>
-                {pathname === "/" ? (
+                {pathname === "/dashboard" ? (
                     <div className={cn(
                         "p-6 flex items-center gap-2 mb-4 overflow-hidden h-20 shrink-0",
                         isCollapsed ? "justify-center px-0" : "px-6"
@@ -118,7 +118,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         )}
                     </div>
                 ) : (
-                    <Link href="/" className={cn(
+                    <Link href="/dashboard" className={cn(
                         "p-6 flex items-center gap-2 mb-4 overflow-hidden h-20 shrink-0 hover:opacity-80 transition-opacity",
                         isCollapsed ? "justify-center px-0" : "px-6"
                     )}>
