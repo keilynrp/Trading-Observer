@@ -10,6 +10,7 @@ export interface MarketData {
     price: string;
     change: string;
     changePercent: string;
+    volume: string;
     latestTradingDay: string;
 }
 
@@ -64,6 +65,7 @@ export class AlphaVantageService {
             price: quote['05. price'],
             change: quote['09. change'],
             changePercent: quote['10. change percent'],
+            volume: quote['06. volume'],
             latestTradingDay: quote['07. latest trading day']
         };
     }

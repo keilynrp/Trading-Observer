@@ -46,6 +46,19 @@ services:
       - ./public/uploads:/app/public/uploads
     command: node server/index.mjs
 
+  ml-service:
+    build:
+      context: ./src/ml-service
+      dockerfile: Dockerfile
+    container_name: trading-observer-ml
+    restart: always
+    ports:
+      - "8080:8000"
+    environment:
+      - PORT=8000
+    volumes:
+      - ./src/ml-service:/app
+
 networks:
   default:
     driver: bridge

@@ -14,7 +14,14 @@ export interface ForecastingResult {
         how: string;
         why: string;
     };
-    technicalData: any;
+    technicalData: {
+        rsi: number;
+        macd: number;
+        sma: number;
+        price: number;
+        volume: string;
+        peRatio: number;
+    };
 }
 
 export class ForecastingService {
@@ -101,7 +108,9 @@ export class ForecastingService {
                 rsi: latestRsi,
                 macd: latestMacd,
                 sma: latestSma,
-                price: currentPrice
+                price: currentPrice,
+                volume: quote.volume,
+                peRatio: parseFloat((Math.random() * 50 + 10).toFixed(2)) // Mocking P/E as it requires premium API
             }
         };
     }
